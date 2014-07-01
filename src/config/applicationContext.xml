@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+	<import resource="applicationContext-service.xml"/>
+	<import resource="applicationContext-dao.xml"/>
+
+	<bean id="dataSource"
+		class="com.mchange.v2.c3p0.ComboPooledDataSource" destroy-method="close">
+		 <property name="driverClass" value="com.mysql.jdbc.Driver"></property>
+		<property name="jdbcUrl" 
+		value="jdbc:mysql://localhost:3306/xz?useUnicode=true&amp;characterEncoding=utf-8"></property>
+		<property name="user" value="root"></property>
+		<property name="password" value="root"></property>
+		 <!-- 指定连接数据库连接池的最大连接数 -->
+        <property name="maxPoolSize" value="20"/>
+        <!-- 指定连接数据库连接池的最小连接数 -->
+        <property name="minPoolSize" value="1"/>
+        <!-- 在当前连接数耗尽的时候，一次获取的新的连接数 -->
+        <property name="acquireIncrement" value="5"></property>
+        <!-- 指定连接数据库连接池的初始化连接数 -->
+       <property name="initialPoolSize" value="1"/>
+        <!-- 指定连接数据库连接池的连接最大空闲时间,改时间段内不对数据库做任何操作，既断开链接 -->
+        <property name="maxIdleTime" value="20"/>
+	</bean>
+	<bean id="sessionFactory" class="org.springframework.orm.hibernate3.LocalSessionFactoryBean">
+		<property name="dataSource">
+			<ref bean="dataSource" />
+		</property>
+		<property name="hibernateProperties">
+			<props>
+				<prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect</prop>
+				<prop key="hibernate.jdbc.batch_size">20</prop> 
+				<prop key="hibernate.cache.use_second_level_cache">false</prop>
+				<prop key="hibernate.show_sql">true</prop>
+				<prop key="hibernate.hbm2ddl.auto">update</prop>
+				 <prop key="hibernate.connection.release_mode">auto</prop>
+			</props>
+		</property>
+		<property name="mappingResources">
+			<list>
+				<value>com/wantdo/domain/XzJpnz.hbm.xml</value>
+				<value>com/wantdo/domain/XzShop.hbm.xml</value>
+				<value>com/wantdo/domain/XzData.hbm.xml</value>
+				<value>com/wantdo/domain/XzFirst.hbm.xml</value>
+				<value>com/wantdo/domain/XzDownload.hbm.xml</value></list>
+		</property>
+	</bean>
+	
+	
+	<!-- 定时器设置，需要配置实现类以及依赖的属性 -->
+	<bean id="UploadService" class="org.springframework.scheduling.quartz.JobDetailBean">
+		<property name="jobClass">
+			<value>com.wantdo.service.UploadService</value>
+		</property>
+		<!-- Spring管理的service注入 -->
+		<property name="jobDataAsMap">  
+            <map>  
+                <entry key="xzJpnzService" value-ref="XzJpnzService"/>  
+                <entry key="xzShopService" value-ref="XzShopService"/>  
+                <entry key="xzDataService" value-ref="XzDataService"/>  
+                <entry key="xzFirstService" value-ref="XzFirstService"/>  
+            </map>  
+        </property>  
+	</bean>
+
+	<bean id="DownloadService" class="org.springframework.scheduling.quartz.JobDetailBean">
+		<property name="jobClass">
+			<value>com.wantdo.service.DownloadService</value>
+		</property>
+		<property name="jobDataAsMap">  
+            <map>  
+                <entry key="xzDownloadService" value-ref="XzDownloadService"/>  
+            </map>  
+        </property>  
+	</bean>
+	
+	<!-- 定时器触发器，配置定时器以及触发时机 -->
+	<bean id="UploadTimerTrigger" class="org.springframework.scheduling.quartz.CronTriggerBean" >
+		<property name="jobDetail" ref="UploadService"></property>
+		<property name="cronExpression">
+			<value>0 26/30 0/1 * * ?</value>
+		</property>
+	</bean>
+	
+	<bean id="DownloadTimerTrigger" class="org.springframework.scheduling.quartz.CronTriggerBean" >
+		<property name="jobDetail" ref="DownloadService"></property>
+		<property name="cronExpression">
+			<value>30 26/30 0/1 * * ?</value>
+		</property>
+	</bean>
+	
+	<!-- 定时器工厂，可以配置多个触发器 -->
+	<bean id="QuartzFactory" class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+		<property name="triggers">
+			<list>
+				<ref bean="UploadTimerTrigger"/>
+				<ref bean="DownloadTimerTrigger"/>
+			</list>
+		</property>
+	</bean>
+	
+	</beans>
